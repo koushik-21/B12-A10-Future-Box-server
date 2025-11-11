@@ -28,7 +28,22 @@ async function run() {
 
     const db = client.db("importExportBD");
     const productsCollection = db.collection("products");
-
+    const usersCollection = db.collection("users");
+    // >>>>>>>>>>>>>>>>>>>>> USERS-API <<<<<<<<<<<<<<<<<<<<<<<<<<<
+    app.post("/users", async (req, res) => {
+      const newUser = req.body;
+      const email = req.body.email;
+      const query = { email: email };
+      const existingUser = await usersCollection.findOne(query);
+      if (existingUser) {
+        res.send({
+          message: "user already exits. do not need to insert again",
+        });
+      } else {
+        const result = await usersCollection.insertOne(newUser);
+        res.send(result);
+      }
+    });
     // >>>>>>>>>>>>>>>>>>>>> PRODUCTS-COLLECTION-API <<<<<<<<<<<<<<<<<<<<<<<<<<<
     app.get("/products", async (req, res) => {
       const products = await productsCollection.find().toArray();
@@ -78,7 +93,9 @@ async function run() {
   }
 }
 run().catch(console.dir);
-
+app.get("/", (req, res) => {
+  res.send("server is running");
+});
 app.listen(port, (req, res) => {
   console.log("YOUR SERVER IS RUNNING ON PORT : ", port);
 });
