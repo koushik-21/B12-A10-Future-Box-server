@@ -106,6 +106,25 @@ async function run() {
         res.status(500).send({ message: "Internal server error" });
       }
     });
+    app.delete("/imports/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+
+        const result = await importsCollection.deleteOne(query);
+
+        if (result.deletedCount === 1) {
+          res.send({ success: true, message: "Import deleted successfully." });
+        } else {
+          res
+            .status(404)
+            .send({ success: false, message: "Import not found." });
+        }
+      } catch (error) {
+        console.error("Delete error:", error);
+        res.status(500).send({ success: false, message: "Server error." });
+      }
+    });
     // >>>>>>>>>>>>>>>>>>>>> PRODUCTS-COLLECTION-API <<<<<<<<<<<<<<<<<<<<<<<<<<<
     app.get("/products", async (req, res) => {
       const products = await productsCollection.find().toArray();
