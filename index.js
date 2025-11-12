@@ -29,6 +29,7 @@ async function run() {
     const db = client.db("importExportBD");
     const productsCollection = db.collection("products");
     const usersCollection = db.collection("users");
+    const importsCollection = db.collection("imports");
     // >>>>>>>>>>>>>>>>>>>>> USERS-API <<<<<<<<<<<<<<<<<<<<<<<<<<<
     app.post("/users", async (req, res) => {
       const newUser = req.body;
@@ -42,6 +43,67 @@ async function run() {
       } else {
         const result = await usersCollection.insertOne(newUser);
         res.send(result);
+      }
+    });
+    // >>>>>>>>>>>>>>>>>>>>> IMPORT-PRODUCT-API <<<<<<<<<<<<<<<<<<<<<<<<<<<
+    app.post("/import", async (req, res) => {
+      try {
+        const { productId, quantity, userEmail } = req.body;
+
+        if (!productId || !quantity || quantity <= 0 || !userEmail) {
+          return res.status(400).send({ message: "Invalid input data" });
+        }
+
+        const query = { _id: new ObjectId(productId) };
+        const product = await productsCollection.findOne(query);
+
+        if (!product)
+          return res.status(404).send({ message: "Product not found" });
+        if (quantity > product.availableQuantity) {
+          return res
+            .status(400)
+            .send({ message: "Import quantity exceeds available stock" });
+        }
+
+        // Decrease quantity
+        await productsCollection.updateOne(query, {
+          $inc: { availableQuantity: -quantity },
+        });
+
+        // Save import record
+        const importRecord = {
+          userEmail,
+          productId: product._id,
+          productName: product.productName,
+          productImage: product.productImage,
+          price: product.price,
+          originCountry: product.originCountry,
+          importQuantity: quantity,
+          importedAt: new Date(),
+        };
+        await importsCollection.insertOne(importRecord);
+
+        res.send({
+          success: true,
+          message: "Product imported successfully",
+          importRecord,
+        });
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Internal server error" });
+      }
+    });
+    // GET IMPORTS FOR USER
+    app.get("/imports/:email", async (req, res) => {
+      try {
+        const email = req.params.email;
+        const userImports = await importsCollection
+          .find({ userEmail: email })
+          .toArray();
+        res.send(userImports);
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Internal server error" });
       }
     });
     // >>>>>>>>>>>>>>>>>>>>> PRODUCTS-COLLECTION-API <<<<<<<<<<<<<<<<<<<<<<<<<<<
