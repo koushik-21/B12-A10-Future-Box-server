@@ -77,6 +77,7 @@ async function run() {
           productName: product.productName,
           productImage: product.productImage,
           price: product.price,
+          rating: product.rating,
           originCountry: product.originCountry,
           importQuantity: quantity,
           importedAt: new Date(),
@@ -93,16 +94,17 @@ async function run() {
         res.status(500).send({ message: "Internal server error" });
       }
     });
-    // GET IMPORTS FOR USER
     app.get("/imports/:email", async (req, res) => {
       try {
         const email = req.params.email;
         const userImports = await importsCollection
           .find({ userEmail: email })
+          .sort({ importedAt: -1 })
           .toArray();
+
         res.send(userImports);
       } catch (err) {
-        console.error(err);
+        console.error("Error fetching user imports:", err);
         res.status(500).send({ message: "Internal server error" });
       }
     });
@@ -127,28 +129,71 @@ async function run() {
     });
     // >>>>>>>>>>>>>>>>>>>>> PRODUCTS-COLLECTION-API <<<<<<<<<<<<<<<<<<<<<<<<<<<
     app.get("/products", async (req, res) => {
-      const products = await productsCollection.find().toArray();
-      res.send(products);
+      try {
+        // Fetch all products sorted by latest first
+        const products = await productsCollection
+          .find()
+          .sort({ createdAt: -1 }) // ✅ Newest first
+          .toArray();
+        res.send(products);
+      } catch (error) {
+        console.error("Error fetching products:", error);
+        res.status(500).send({ message: "Failed to fetch products" });
+      }
     });
+
     app.get("/latestProduct", async (req, res) => {
       const result = await productsCollection
         .find()
-        .sort({ created_at: -1 })
+        .sort({ createdAt: -1 })
         .limit(6)
         .toArray();
       res.send(result);
     });
-    // hello-gello
     app.get("/products/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await productsCollection.findOne(query);
       res.send(result);
     });
+    app.get("/products/myexports/:email", async (req, res) => {
+      try {
+        const email = req.params.email;
+        const userExports = await productsCollection
+          .find({ email: email })
+          .sort({ createdAt: -1 })
+          .toArray();
+
+        res.send(userExports);
+      } catch (err) {
+        console.error("Error fetching user imports:", err);
+        res.status(500).send({ message: "Internal server error" });
+      }
+    });
     app.post("/products", async (req, res) => {
       const newProduct = req.body;
       const result = await productsCollection.insertOne(newProduct);
       res.send(result);
+    });
+    app.put("/products/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const updatedProductInfo = req.body;
+
+        const query = { _id: new ObjectId(id) };
+        const update = { $set: updatedProductInfo }; // important!
+
+        const result = await productsCollection.updateOne(query, update);
+
+        if (result.modifiedCount > 0) {
+          res.send({ message: "Product updated successfully" });
+        } else {
+          res.status(400).send({ message: "No changes were made" });
+        }
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Internal server error" });
+      }
     });
     app.patch("/products/:id", async (req, res) => {
       const id = req.params.id;
@@ -160,10 +205,29 @@ async function run() {
     });
     app.delete("/products/:id", async (req, res) => {
       const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await productsCollection.deleteOne(query);
-      res.send(result);
+      try {
+        const objectId = new ObjectId(id);
+
+        // Delete the product
+        await productsCollection.deleteOne({ _id: objectId });
+
+        // Delete associated imports
+        await importsCollection.deleteMany({ productId: objectId });
+
+        res.send({
+          message: "Product and related imports deleted successfully",
+        });
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Server error" });
+      }
     });
+    // app.delete("/products/:id", async (req, res) => {
+    //   const id = req.params.id;
+    //   const query = { _id: new ObjectId(id) };
+    //   const result = await productsCollection.deleteOne(query);
+    //   res.send(result);
+    // });
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
