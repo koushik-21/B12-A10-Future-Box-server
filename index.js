@@ -31,6 +31,10 @@ async function run() {
     const usersCollection = db.collection("users");
     const importsCollection = db.collection("imports");
     // >>>>>>>>>>>>>>>>>>>>> USERS-API <<<<<<<<<<<<<<<<<<<<<<<<<<<
+    app.get("/users", async (req, res) => {
+      const users = await usersCollection.find().toArray();
+      res.send(users);
+    });
     app.post("/users", async (req, res) => {
       const newUser = req.body;
       const email = req.body.email;
@@ -45,6 +49,160 @@ async function run() {
         res.send(result);
       }
     });
+    app.patch("/users/:id", async (req, res) => {
+      const id = req.params.id;
+      const { role } = req.body;
+
+      const result = await usersCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { role } },
+      );
+
+      res.send(result);
+    });
+    app.delete("/users/:id", async (req, res) => {
+      const id = req.params.id;
+
+      const result = await usersCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
+
+      res.send(result);
+    });
+    //<<<<Admin API
+    app.get("/admin/:email", async (req, res) => {
+      const email = req.params.email;
+
+      if (email === "demoadmin@ieb.com") {
+        return res.send({ admin: true });
+      }
+
+      res.send({ admin: false });
+    });
+    app.get("/admin/users/:email", async (req, res) => {
+      const email = req.params.email;
+
+      if (email !== "demoadmin@ieb.com") {
+        return res.status(403).send({ message: "Forbidden" });
+      }
+
+      const users = await usersCollection.find().toArray();
+      res.send(users);
+    });
+    app.delete("/admin/users/:id/:email", async (req, res) => {
+      const { id, email } = req.params;
+
+      if (email !== "demoadmin@ieb.com") {
+        return res.status(403).send({ message: "Forbidden" });
+      }
+
+      const result = await usersCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
+
+      res.send(result);
+    });
+    app.post("/admin/products", async (req, res) => {
+      const { email } = req.query;
+
+      if (email !== "demoadmin@ieb.com") {
+        return res.status(403).send({ message: "Forbidden" });
+      }
+
+      const product = {
+        productName: req.body.productName,
+        productImage: req.body.productImage,
+        price: Number(req.body.price),
+        originCountry: req.body.originCountry,
+        rating: Number(req.body.rating),
+        availableQuantity: Number(req.body.availableQuantity),
+        createdAt: new Date(),
+      };
+
+      const result = await productsCollection.insertOne(product);
+      res.send(result);
+    });
+    app.post("/admin/products/:email", async (req, res) => {
+      if (req.params.email !== "demoadmin@ieb.com") {
+        return res.status(403).send({ message: "Forbidden" });
+      }
+
+      const product = {
+        ...req.body,
+        createdAt: new Date(),
+      };
+
+      const result = await productsCollection.insertOne(product);
+      res.send(result);
+    });
+    app.put("/admin/products/:id", async (req, res) => {
+      const { email } = req.query;
+      const id = req.params.id;
+
+      if (email !== "demoadmin@ieb.com") {
+        return res.status(403).send({ message: "Forbidden" });
+      }
+
+      const updateDoc = {
+        $set: {
+          productName: req.body.productName,
+          productImage: req.body.productImage,
+          price: Number(req.body.price),
+          originCountry: req.body.originCountry,
+          rating: Number(req.body.rating),
+          availableQuantity: Number(req.body.availableQuantity),
+        },
+      };
+
+      const result = await productsCollection.updateOne(
+        { _id: new ObjectId(id) },
+        updateDoc,
+      );
+
+      res.send(result);
+    });
+    app.put("/admin/products/:id/:email", async (req, res) => {
+      const { id, email } = req.params;
+
+      if (email !== "demoadmin@ieb.com") {
+        return res.status(403).send({ message: "Forbidden" });
+      }
+
+      const result = await productsCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: req.body },
+      );
+
+      res.send(result);
+    });
+    app.delete("/admin/products/:id/:email", async (req, res) => {
+      const { id, email } = req.params;
+
+      if (email !== "demoadmin@ieb.com") {
+        return res.status(403).send({ message: "Forbidden" });
+      }
+
+      const result = await productsCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
+
+      res.send(result);
+    });
+    app.delete("/admin/products/:id", async (req, res) => {
+      const { email } = req.query;
+      const id = req.params.id;
+
+      if (email !== "demoadmin@ieb.com") {
+        return res.status(403).send({ message: "Forbidden" });
+      }
+
+      const result = await productsCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
+
+      res.send(result);
+    });
+
     // >>>>>>>>>>>>>>>>>>>>> IMPORT-PRODUCT-API <<<<<<<<<<<<<<<<<<<<<<<<<<<
     app.post("/import", async (req, res) => {
       try {
@@ -171,8 +329,14 @@ async function run() {
       }
     });
     app.post("/products", async (req, res) => {
-      const newProduct = req.body;
-      const result = await productsCollection.insertOne(newProduct);
+      // const newProduct = req.body;
+      // const result = await productsCollection.insertOne(newProduct);
+      // res.send(result);
+      const product = {
+        ...req.body,
+        createdAt: new Date(),
+      };
+      const result = await productsCollection.insertOne(product);
       res.send(result);
     });
     app.put("/products/:id", async (req, res) => {
@@ -232,7 +396,7 @@ async function run() {
 
     // await client.db("admin").command({ ping: 1 });
     console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
+      "Pinged your deployment. You successfully connected to MongoDB!",
     );
   } finally {
     // Ensures that the client will close when you finish/error
