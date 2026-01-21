@@ -2,7 +2,7 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 const app = express();
-const port = process.env.PORT || 5000;
+const port = process.env.PORT;
 
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>middle-ware-connection<<<<<<<<<<<<<<<<<<<<<<<<
 app.use(cors());
@@ -405,7 +405,7 @@ async function run() {
 }
 run().catch(console.dir);
 app.get("/", (req, res) => {
-  res.send("server is running for 2026");
+  res.send("server is running for 2026 and latest");
 });
 app.listen(port, (req, res) => {
   console.log("YOUR SERVER IS RUNNING ON PORT : ", port);
